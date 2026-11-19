@@ -1,0 +1,131 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { feature, featureCollection, multiPolygon, point, polygon } from '@turf/helpers'
+import { strFromU8, unzipSync } from 'fflate'
+import { getShapefile } from 'shpjs'
+import { GEOM_WKT_COLUMN, PRJ_WGS84, toCsv, toShpZip, writeDbf, writeShp } from '../lib/geo-export.js'
+import { loadCsvText } from '../lib/index.js'
+
+const ptFc = () => featureCollection([
+  point([116.4, 39.9], { name: '北京', rank: 1 }),
+  point([121.47, 31.23], { name: '上海', rank: 2 }),
+])
+
+// 面层：一个 Polygon + 一个带洞的 MultiPolygon（外环 + 1 洞）。
+const polyFc = () => featureCollection([
+  polygon([[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]], { name: '甲', pop: 100 }),
+  multiPolygon([
+    [
+      [[20, 0], [30, 0], [30, 10], [20, 10], [20, 0]],
+      [[25, 2], [25, 8], [28, 8], [28, 2], [25, 2]],
+    ],
+  ], { name: '乙', pop: 200 }),
+])
+
+// ---- CSV（WKT 列）----
+
+test('toCsv: 属性列 + geom_wkt 末列，对象列 JSON 化，WKT 坐标正确', () => {
+  const csv = toCsv(featureCollection([
+    point([116.4, 39.9], { name: 'a', tags: { x: 1 } }),
+    feature({ type: 'Point', coordinates: [1, 2], properties: { name: 'b', note: null } }),
+  ]))
+  const lines = csv.replace(/\r/g, '').trim().split('\n')
+  const header = lines[0]
+  assert.ok(header.includes('name'))
+  assert.ok(header.includes('tags'))
+  assert.ok(header.endsWith(GEOM_WKT_COLUMN))
+  assert.match(lines[1], /POINT\s*\(116\.4 39\.9\)/)
+  // 对象属性被 JSON 化（Papa 会转义内嵌引号）
+  assert.ok(lines[1].includes('x'))
+  assert.ok(lines[1].startsWith('a'))
+  // 空几何 → 空单元格（不输出 undefined）
+  const empty = toCsv(featureCollection([feature({ type: 'Point', coordinates: [1, 2], properties: {} })]))
+  assert.ok(!empty.includes('undefined'))
+})
+
+test('toCsv → loadCsvText 往返：WKT 列被识别为几何，面/多面还原', () => {
+  const parsed = loadCsvText(toCsv(polyFc()))
+  assert.equal(parsed.features.length, 2)
+  assert.equal(parsed.features[0].geometry.type, 'Polygon')
+  assert.equal(parsed.features[1].geometry.type, 'MultiPolygon')
+  assert.equal(parsed.features[1].geometry.coordinates[0].length, 2) // 外环 + 洞
+  assert.equal(parsed.features[0].properties.name, '甲')
+})
+
+// ---- SHP / DBF 字节布局 ----
+
+test('toShpZip: 含 shp/dbf/prj/cpg 四条目，cpg=UTF-8，prj=WGS84', () => {
+  const zip = toShpZip(polyFc(), 'test')
+  const files = unzipSync(zip)
+  assert.ok(files['test.shp'])
+  assert.ok(files['test.dbf'])
+  assert.ok(files['test.prj'])
+  assert.equal(strFromU8(files['test.cpg']), 'UTF-8')
+  assert.equal(strFromU8(files['test.prj']), PRJ_WGS84)
+})
+
+test('writeShp: 头字节正确（9994 大端 / 1000 小端 / 长度=字*2 / type=5）', () => {
+  const shp = writeShp(polyFc())
+  assert.equal(shp.readInt32BE(0), 9994)
+  assert.equal(shp.readInt32LE(28), 1000)
+  assert.equal(shp.readInt32BE(24) * 2, shp.length) // 文件长度单位为 16-bit 字
+  assert.equal(shp.readInt32LE(32), 5) // Polygon
+  assert.equal(shp.length % 2, 0)
+  // 首条记录：RecordNumber=1（大端，偏移 100），ContentLength=字（偏移 104）
+  assert.equal(shp.readInt32BE(100), 1)
+  const recBytes = shp.readInt32BE(104) * 2
+  assert.ok(recBytes > 0)
+})
+
+test('writeDbf: 记录数/字段描述符（C/N 类型、长度）/EOF 0x1A', () => {
+  const dbf = writeDbf(polyFc())
+  assert.equal(dbf.readUInt32LE(4), 2)
+  const headerLen = dbf.readUInt16LE(8)
+  assert.equal(dbf[headerLen - 1], 0x0D)
+  assert.equal(dbf[dbf.length - 1], 0x1A)
+  // 字段1 name → C，字段2 pop → N（长度 3）
+  const name1 = strFromU8(dbf.subarray(32, 43)).split('\u0000')[0]
+  assert.equal(name1, 'name')
+  assert.equal(String.fromCharCode(dbf[43]), 'C')
+  const name2 = strFromU8(dbf.subarray(64, 75)).split('\u0000')[0]
+  assert.equal(name2, 'pop')
+  assert.equal(String.fromCharCode(dbf[75]), 'N')
+  assert.equal(dbf[80], 3)
+  // 记录总长 = 1(删除标志) + Σ字段长，字段长合计 = name(≈6 字节中文) + 3
+  assert.ok(dbf.readUInt16LE(10) >= 1 + 3)
+})
+
+// ---- shpjs 往返 ----
+
+test('shpjs 往返：Point 层坐标一致（getShapefile 吃整个 zip）', async () => {
+  const gj = await getShapefile(Buffer.from(toShpZip(ptFc(), 'pts')))
+  const fc = Array.isArray(gj) ? gj[0] : gj
+  assert.equal(fc.features.length, 2)
+  const c0 = fc.features[0].geometry.coordinates
+  assert.ok(Math.abs(c0[0] - 116.4) < 1e-6)
+  assert.ok(Math.abs(c0[1] - 39.9) < 1e-6)
+})
+
+test('shpjs 往返：Polygon 层（带洞面读回为 Polygon，外环+洞坐标一致）', async () => {
+  const gj = await getShapefile(Buffer.from(toShpZip(polyFc(), 'pl')))
+  const fc = Array.isArray(gj) ? gj[0] : gj
+  assert.equal(fc.features.length, 2)
+  assert.equal(fc.features[0].geometry.type, 'Polygon')
+  assert.deepEqual(fc.features[0].geometry.coordinates[0][0], [0, 0])
+  // 带洞 MultiPolygon（单部件+洞）在 SHP 里是 2 parts，shpjs 读回为 Polygon（外环+洞）——几何等价。
+  const g1 = fc.features[1].geometry
+  assert.equal(g1.type, 'Polygon')
+  assert.equal(g1.coordinates.length, 2) // 外环 + 洞
+  assert.deepEqual(g1.coordinates[0][0], [20, 0])
+  assert.deepEqual(g1.coordinates[1][0], [25, 2])
+})
+
+// ---- 边界 ----
+
+test('toShpZip: 空 FC / 全 GeometryCollection → 抛错', () => {
+  assert.throws(() => toShpZip(featureCollection([])), /没有可写入/)
+  const gc = featureCollection([
+    feature({ type: 'GeometryCollection', geometries: [] }, { name: 'x' }),
+  ])
+  assert.throws(() => toShpZip(gc), /没有可写入/)
+})
