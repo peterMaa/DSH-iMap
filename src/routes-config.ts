@@ -6,6 +6,7 @@
 import { writeFile } from 'node:fs/promises'
 import { json, jsonError, readBody } from './http-utils.js'
 import { configKey, DEFAULT_CLUSTER, type PostgisClusterConfig, type PostgisConfig } from './postgis.js'
+import { TIANDITU_KEY_REF, tiandituView, type TiandituConfig } from './tianditu-config.js'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import type { RouteApi, RouteHandler } from './route-shared.js'
 
@@ -50,6 +51,43 @@ export const handleVisionConfigPost: RouteHandler = (req, res, _url, _pathname, 
         api.ctx.logger.warn('[webgis] 视觉模型配置持久化失败: %s', err instanceof Error ? err.message : String(err))
       })
       json(res, { ok: true, provider, model })
+    } catch (err) {
+      jsonError(res, 400, err instanceof Error ? err.message : '请求体无效')
+    }
+  })()
+}
+
+export const handleTiandituConfigGet: RouteHandler = (_req, res, _url, _pathname, _sessionId, _state, api) => {
+  // 密钥不回显：只给掩码与是否已设置，让设置页能显示「前 4 + **** + 后 4」。
+  json(res, tiandituView(api.effectiveTianditu()))
+}
+
+export const handleTiandituConfigPost: RouteHandler = (req, res, _url, _pathname, _sessionId, _state, api) => {
+  // 保存天地图服务选择与密钥。留空或提交当前掩码 = 保留原密钥（避免掩码覆盖真实值）。
+  return void (async () => {
+    try {
+      const raw = await readBody(req, 16 * 1024)
+      const data = JSON.parse(raw) as Record<string, unknown>
+      const keyInput = typeof data.key === 'string' ? data.key.trim() : ''
+      if (keyInput.length > 500) return jsonError(res, 400, '密钥过长')
+      const current = api.effectiveTianditu()
+      const vector = typeof data.vector === 'boolean' ? data.vector : current.vector
+      const imagery = typeof data.imagery === 'boolean' ? data.imagery : current.imagery
+      let key = current.key
+      // 掩码串本身（或被改动的掩码）一律视为「不修改密钥」，避免把掩码写回凭据。
+      if (keyInput && !keyInput.includes('****') && keyInput !== tiandituView(current).keyMask) {
+        await api.ctx.credentials.set(credentialRef(TIANDITU_KEY_REF), keyInput).catch((err: unknown) => {
+          api.ctx.logger.warn('[webgis] 天地图密钥写入凭据存储失败: %s', err instanceof Error ? err.message : String(err))
+        })
+        key = keyInput
+      }
+      const next: TiandituConfig = { key, vector, imagery }
+      api.tiandituCfg.set(next)
+      // 落盘只写凭据引用与服务选择，绝不写明文密钥。
+      await writeFile(api.tiandituFile, JSON.stringify({ keyRef: TIANDITU_KEY_REF, vector, imagery }), 'utf8').catch((err: unknown) => {
+        api.ctx.logger.warn('[webgis] 天地图配置持久化失败: %s', err instanceof Error ? err.message : String(err))
+      })
+      json(res, { ok: true, ...tiandituView(next) })
     } catch (err) {
       jsonError(res, 400, err instanceof Error ? err.message : '请求体无效')
     }

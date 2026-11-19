@@ -19,10 +19,12 @@ export const handleState: RouteHandler = (_req, res, _url, _pathname, _sessionId
   // 「客户端不在」与「客户端在但没完成」（见 WebgisState.lastClientPollAt）。
   state.lastClientPollAt = Date.now()
   const datasetLayer = state.layers.find((l) => l.id === 'dataset')
+  const tianditu = api.effectiveTianditu()
   json(res, {
     baseTileUrl: api.config.baseTileUrl,
-    // 天地图密钥：客户端据此启用「天地图矢量」底图并填充瓦片 URL 的 {tk} 占位。
-    tiandituKey: api.config.tiandituKey ?? '',
+    // 天地图密钥：客户端据此填充瓦片 URL 的 {tk} 占位（设置页只回掩码，地图渲染仍需完整值）。
+    tiandituKey: tianditu.key,
+    tiandituServices: { vector: tianditu.vector, imagery: tianditu.imagery },
     dataset: state.dataset
       ? {
           name: state.dataset.name,

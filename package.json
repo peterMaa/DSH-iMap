@@ -18,7 +18,7 @@
   "bugs": {
     "url": "https://github.com/peterMaa/DSH-iMap/issues"
   },
-  "author": "Jason Ma <myj333@gmail.com>",
+  "author": "Jason <myshow@outlook.com>",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",

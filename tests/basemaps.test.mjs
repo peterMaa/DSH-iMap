@@ -34,6 +34,16 @@ test('天地图矢量底图：矢量分组、带注记 URL、瓦片模板含 {tk
   assert.ok(!needsTiandituKey(dft), 'default 不需要密钥')
 })
 
+test('天地图影像底图：影像分组、img_w + cia_w 注记、需要密钥', () => {
+  const img = BASE_MAPS.find((d) => d.id === 'tianditu-img')
+  assert.ok(img, '目录含 tianditu-img')
+  assert.equal(img.category, '影像')
+  assert.equal(img.kind, 'raster')
+  assert.ok(img.url.includes('T=img_w') && img.url.includes('{tk}'), '影像底图 URL 含 img_w 与 {tk}')
+  assert.ok(img.labelUrl?.includes('T=cia_w') && img.labelUrl.includes('{tk}'), '影像注记 URL 含 cia_w 与 {tk}')
+  assert.ok(needsTiandituKey(img), '标记为需要密钥')
+})
+
 test('fillTiandituKey：填充 {tk} 占位，无占位原样', () => {
   assert.equal(fillTiandituKey('https://x/tile?tk={tk}', 'abc123'), 'https://x/tile?tk=abc123')
   assert.equal(fillTiandituKey('https://x/{z}/{x}/{y}.png', 'abc123'), 'https://x/{z}/{x}/{y}.png')

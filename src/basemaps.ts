@@ -37,6 +37,8 @@ export interface BaseMapDef {
  */
 export const TIANDITU_VEC_TILES = 'https://t0.tianditu.gov.cn/DataServer?T=vec_w&x={x}&y={y}&l={z}&tk={tk}'
 export const TIANDITU_CVA_TILES = 'https://t0.tianditu.gov.cn/DataServer?T=cva_w&x={x}&y={y}&l={z}&tk={tk}'
+export const TIANDITU_IMG_TILES = 'https://t0.tianditu.gov.cn/DataServer?T=img_w&x={x}&y={y}&l={z}&tk={tk}'
+export const TIANDITU_CIA_TILES = 'https://t0.tianditu.gov.cn/DataServer?T=cia_w&x={x}&y={y}&l={z}&tk={tk}'
 
 export const BASE_MAPS: BaseMapDef[] = [
   // ---- 矢量（街道 / 矢量瓦片样式） ----
@@ -47,6 +49,7 @@ export const BASE_MAPS: BaseMapDef[] = [
   { id: 'openfreemap-liberty', name: 'OpenFreeMap Liberty', category: '矢量', kind: 'style', url: 'https://tiles.openfreemap.org/styles/liberty' },
   { id: 'tianditu-vec', name: '天地图矢量', category: '矢量', kind: 'raster', url: TIANDITU_VEC_TILES, labelUrl: TIANDITU_CVA_TILES, tileSize: 256, attribution: '© 天地图' },
   // ---- 影像（光栅卫星） ----
+  { id: 'tianditu-img', name: '天地图影像', category: '影像', kind: 'raster', url: TIANDITU_IMG_TILES, labelUrl: TIANDITU_CIA_TILES, tileSize: 256, attribution: '© 天地图' },
   { id: 'esri-imagery', name: 'Esri 全球影像', category: '影像', kind: 'raster', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', tileSize: 256 },
 ]
 

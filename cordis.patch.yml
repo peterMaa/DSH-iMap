@@ -6,8 +6,9 @@
         # 默认底图（Carto light tiles；Carto 需带账号 key 去「API key required」水印）。
         # ⚠️ 该 key 是部署账号私有——发布公共 npm 前请移出（换 OSM / 自建 / 环境注入），勿随包分发。
         baseTileUrl: https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_2ynp_1_f4210333ac56345b838752b4
-        # 天地图密钥（tk）：填写后底图切换器启用「天地图矢量」（vec_w 底图 + cva_w 注记）。
-        # 申请：https://console.tianditu.gov.cn （创建「浏览器端」应用类型）。留空则该底图条目置灰。
+        # 天地图密钥（tk）：也可在设置 → 插件 → IMap → 天地图 中选择影像/矢量服务并填写密钥。
+        # GUI 配置的密钥存 DSH 凭据存储，设置页只回显前 4 位与后 4 位；此处的 tiandituKey 仅作兜底。
+        # 申请：https://console.tianditu.gov.cn （创建「浏览器端」应用类型）。留空则天地图条目置灰。
         # tiandituKey: <你的天地图密钥>
         # （不再默认加载示例数据集 assets/sample.geojson；需要的话可取消注释下一行）
         # defaultDataset: assets/sample.geojson

@@ -3,13 +3,14 @@ import { IconChevronDownOutlineMedium } from '@deepseek-ai/dsh-client-ui-primiti
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import { VisionConfigSection } from './VisionConfigCard.js'
 import { PostgisConfigSection } from './PostgisConfigCard.js'
+import { TiandituConfigSection } from './TiandituConfigSection.js'
 import { OverlayServicesSection } from './OverlayServicesSection.js'
 import styles from './webgis.module.css'
 
 /**
- * DSH 设置 → 插件 → WebGIS 插件配置：合并后的唯一卡片。
+ * DSH 设置 → 插件 → IMap 插件配置：合并后的唯一卡片。
  *
- * 结构：折叠头（「WebGIS 插件配置」）+ body = 启停总开关 + 视觉模型子区 + 数据库子区。
+ * 结构：折叠头（「IMap 插件配置」）+ body = 启停总开关 + 视觉 / 数据库 / 天地图 / 叠加服务子区。
  * 启停开关：读 GET /webgis/status、写 POST /webgis/plugin-config，立即生效（host 写内存+持久化）。
  * 关闭后 GIS 模式/地图/工具不生效，但本卡片仍可打开，子区仍可编辑（便于预配置后重新开启）。
  * `t` 由 DSH 渲染器按声明 `locale:'webgis'` 注入；子区非 slot 入口，经 props 接收 t。
@@ -99,10 +100,11 @@ export function WebgisConfigCard({ t }: PropsLocale<'webgis'>) {
           {error && <p className={styles.settingsFailed}>{error}</p>}
           <VisionConfigSection t={t} />
           <PostgisConfigSection t={t} />
+          <TiandituConfigSection t={t} />
           <OverlayServicesSection t={t} />
           <div className={styles.settingsAbout}>
-            <span>{t('settings.author', { name: 'Frank Wang' })}</span>
-            <a href="mailto:cywanghn@gmail.com">{t('settings.feedback', { email: 'cywanghn@gmail.com' })}</a>
+            <span>{t('settings.author', { name: 'Jason' })}</span>
+            <a href="mailto:myshow@outlook.com">{t('settings.feedback', { email: 'myshow@outlook.com' })}</a>
           </div>
         </div>
       )}

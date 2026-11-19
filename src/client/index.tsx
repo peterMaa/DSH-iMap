@@ -50,10 +50,10 @@ export function apply(ctx: Context): void {
   //   「register into settings.plugins.tab with an id, an order, and a localized label;
   //     a lone contribution renders as the page itself.」
   // 所以这里从「注册一张卡」改为「注册一个 tab」。同页还有内置的只读清单 tab，因此实际会显示成
-  // 一排 tab（清单 + WebGIS）。
+  // 一排 tab（清单 + IMap）。
   //
   // label 是**注册方自己本地化好的文本**，不是词典键（ui-settings 的槽注释：
-  // "label (registrant-localized tab text)"）。取语言中立的 'WebGIS'，
+  // "label (registrant-localized tab text)"）。取语言中立的 'IMap'，
   // 中英文下都正确；要随语言变化才需要按 locale 重注册（当前不需要）。
   //
   // locale: WEBGIS_NS → DSH 渲染器给该入口注入随语言切换的 `t` prop（卡片内部文案仍走词典）。
@@ -61,7 +61,7 @@ export function apply(ctx: Context): void {
     name: 'settings.plugins.tab',
     id: 'webgis',
     order: 30,
-    label: 'WebGIS',
+    label: 'IMap',
     locale: WEBGIS_NS,
   } as { name: 'settings.plugins.tab'; id: string; order: number; label: string; locale: 'webgis' }, WebgisConfigCard)))
 

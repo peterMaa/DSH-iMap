@@ -40,8 +40,10 @@ const PICK_TOLERANCE_PX = 8
 
 interface StateResponse {
   baseTileUrl: string
-  /** 天地图密钥（插件配置 tiandituKey 下发）；空串 = 未配置，切换器隐藏天地图条目。 */
+  /** 天地图密钥（插件配置下发）；空串 = 未配置，切换器锁定天地图条目。 */
   tiandituKey: string
+  /** 设置页启用的天地图服务；决定切换器显示哪些条目。 */
+  tiandituServices?: { vector: boolean; imagery: boolean }
   dataset: { name: string; featureCount: number; visible: boolean } | null
   navigate: { id: number; lng: number; lat: number; zoom?: number } | null
   /** host 请求「捕获当前视图」：seq 变化即需要截一次当前地图（中心为关注点）。 */
@@ -221,6 +223,8 @@ export function MapView({ sessionId, t }: { sessionId?: string; t: WebgisT }) {
   /** 天地图密钥（/webgis/state 下发）：底图切换填 {tk}、切换器决定天地图条目可用性。 */
   const stTiandituKeyRef = useRef('')
   const [tiandituKey, setTiandituKey] = useState('')
+  /** 设置页启用的天地图服务；与密钥一起从 state 同步。 */
+  const [tiandituServices, setTiandituServices] = useState<{ vector: boolean; imagery: boolean }>({ vector: true, imagery: true })
   /** 最新叠加服务清单（/webgis/services 轮询回填）。 */
   const overlaysRef = useRef<OverlayService[]>([])
   /** 绘图工具条激活时置 true：MapView 点击逻辑（属性弹窗/图钉/pick）让位给 terradraw。 */
@@ -702,11 +706,15 @@ export function MapView({ sessionId, t }: { sessionId?: string; t: WebgisT }) {
         // 状态没变 → 整轮跳过（图层同步/导航/捕获全由状态驱动，相同就没有可做的工作）。
         // 长时间挂机时每 1s 轮询只做一次 JSON 序列化比较，不再触发 syncLayers/重渲染/重复请求处理，
         // 内存与 CPU 几乎零开销；SSE `sync` 消息只在状态真变化时才推，那时 fp 才会变。
-        const fp = JSON.stringify({ b: st.baseTileUrl, tk: st.tiandituKey, ds: st.dataset, nav: st.navigate, cap: st.capture, ls: st.layers })
+        const services = st.tiandituServices ?? { vector: true, imagery: true }
+        const fp = JSON.stringify({ b: st.baseTileUrl, tk: st.tiandituKey, ts: services, ds: st.dataset, nav: st.navigate, cap: st.capture, ls: st.layers })
         if (fp === pollFpRef.current) return
         pollFpRef.current = fp
-        // 密钥变更（插件配置改动）→ 切换器可用性重渲染。
+        // 密钥 / 服务选择变更（插件配置改动）→ 切换器可用性重渲染。
         setTiandituKey((prev) => (prev === stTiandituKeyRef.current ? prev : stTiandituKeyRef.current))
+        setTiandituServices((prev) => (
+          prev.vector === services.vector && prev.imagery === services.imagery ? prev : services
+        ))
         // 仅默认底图才跟随 host 的 baseTileUrl 换瓦片；用户选了别的底图（Esri 影像/矢量样式）不被顶掉。
         if (baseMapRef.current.id === 'default') {
           const baseSource = map.getSource('base') as RasterTileSource | undefined
@@ -861,6 +869,7 @@ export function MapView({ sessionId, t }: { sessionId?: string; t: WebgisT }) {
         <BasemapSwitcher
           baseMap={baseMap}
           tiandituKey={tiandituKey}
+          tiandituServices={tiandituServices}
           onSwitch={async (def) => {
             setBaseMap(def)
             const map = mapRef.current

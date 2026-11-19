@@ -13,7 +13,7 @@ import {
 } from '../lib/enabled.js'
 
 const DATA_PATHS = ['/webgis/state', '/webgis/dataset', '/webgis/gis-result', '/webgis/layer-action', '/webgis/import', '/webgis/export', '/webgis/pick']
-const ALLOWED_PATHS = ['/webgis/status', '/webgis/plugin-config', '/webgis/vision-config', '/webgis/postgis-config', '/webgis/postgis-action', '/webgis/maplibre-gl.css', '/webgis/maplibre-gl-csp-worker.js']
+const ALLOWED_PATHS = ['/webgis/status', '/webgis/plugin-config', '/webgis/vision-config', '/webgis/tianditu-config', '/webgis/postgis-config', '/webgis/postgis-action', '/webgis/maplibre-gl.css', '/webgis/maplibre-gl-csp-worker.js']
 
 test('parseEnabled: 合法/非法/缺字段 各分支', () => {
   assert.equal(parseEnabled('{"enabled":false}'), false)

@@ -20,6 +20,7 @@ import { registerPixelTools } from './pixel-tools.js'
 import { registerLocatorTool } from './locator-tools.js'
 import type { VisionConfig, VisionAnalysisResult } from './vision-chain.js'
 import { analyzeScreenshotChain } from './vision-chain.js'
+import { TIANDITU_KEY_REF, type TiandituConfig, type TiandituStored } from './tianditu-config.js'
 import { makeResultLayer, summarize } from './geo-processing.js'
 import { registerGeoTools } from './geo-tools.js'
 import { GeoJobRunner } from './geo-jobs.js'
@@ -62,6 +63,7 @@ import { handleAttachment, handleExportImage } from './routes-export.js'
 import { handleBasemapExtract } from './routes-basemap.js'
 import {
   handlePostgisAction, handlePostgisConfigGet, handlePostgisConfigPost,
+  handleTiandituConfigGet, handleTiandituConfigPost,
   handleVisionConfigGet, handleVisionConfigPost,
 } from './routes-config.js'
 import {
@@ -264,6 +266,36 @@ export function apply(ctx: Context, config: Config): void {
   // 叠加地图服务（WMTS/WMS/XYZ）：设置卡片读写 ~/.dsh/webgis-services.json。
   const servicesFile = join(homedir(), '.dsh', 'webgis-services.json')
 
+  // 天地图配置：GUI 卡片读写 ~/.dsh/webgis-tianditu.json；密钥只存凭据存储，文件仅保留引用与服务选择。
+  // 旧版明文 key 一次性迁移；没有 GUI 配置时沿用 cordis.patch.yml 的 config.tiandituKey。
+  const tiandituFile = join(homedir(), '.dsh', 'webgis-tianditu.json')
+  let tiandituCfg: TiandituConfig | null = null
+  readFile(tiandituFile, 'utf8').then(async (raw) => {
+    const parsed = JSON.parse(raw) as TiandituStored & { key?: string }
+    if (!parsed || typeof parsed !== 'object') return
+    let key = ''
+    if (typeof parsed.key === 'string' && parsed.key) {
+      await ctx.credentials.set(credentialRef(TIANDITU_KEY_REF), parsed.key).catch((err: unknown) => {
+        ctx.logger.warn('[webgis] 天地图密钥迁移到凭据存储失败: %s', err instanceof Error ? err.message : String(err))
+      })
+      key = parsed.key
+      const migrated: TiandituStored = {
+        keyRef: TIANDITU_KEY_REF, vector: parsed.vector !== false, imagery: parsed.imagery !== false,
+      }
+      await writeFile(tiandituFile, JSON.stringify(migrated), 'utf8').catch(() => {})
+    } else {
+      const resolved = await ctx.credentials.resolve(credentialRef(TIANDITU_KEY_REF)).catch(() => null)
+      key = resolved?.value ?? ''
+    }
+    tiandituCfg = { key, vector: parsed.vector !== false, imagery: parsed.imagery !== false }
+  }).catch(() => {})
+
+  /** 生效的天地图配置：GUI 设置优先，config.tiandituKey 只作密钥兜底。 */
+  function effectiveTianditu(): TiandituConfig {
+    if (!tiandituCfg) return { key: config.tiandituKey ?? '', vector: true, imagery: true }
+    return { ...tiandituCfg, key: tiandituCfg.key || (config.tiandituKey ?? '') }
+  }
+
   // 注册 settings 命名空间 `webgis`：让 DSH 按命名空间分发插件配置卡片、vision 也能走配置文件。
   // 数据仍走 GUI 的 HTTP 文件；此命名空间只保证卡片可分发。dsh-settings 0.1.2-rc.1 后 API 从顶层
   // installSettingsSection 迁到 ctx.settings.installSection——这里运行时探测，两版都兼容。
@@ -384,12 +416,15 @@ export function apply(ctx: Context, config: Config): void {
     db,
     effectivePostgis,
     effectiveVision,
+    effectiveTianditu,
     dropLayerResources,
     visionCfg: { get: () => visionCfg, set: (v) => { visionCfg = v } },
     postgisCfg: { get: () => postgisCfg, set: (v) => { postgisCfg = v } },
+    tiandituCfg: { get: () => tiandituCfg, set: (v) => { tiandituCfg = v } },
     visionFile,
     postgisFile,
     servicesFile,
+    tiandituFile,
     postgisPasswordRef: POSTGIS_PASSWORD_REF,
     sseClients,
     sseStateHash,
@@ -416,6 +451,8 @@ export function apply(ctx: Context, config: Config): void {
     route('GET', '/webgis/attachment', handleAttachment),
     route('GET', '/webgis/vision-config', handleVisionConfigGet),
     route('POST', '/webgis/vision-config', handleVisionConfigPost),
+    route('GET', '/webgis/tianditu-config', handleTiandituConfigGet),
+    route('POST', '/webgis/tianditu-config', handleTiandituConfigPost),
     route('GET', '/webgis/postgis-config', handlePostgisConfigGet),
     route('POST', '/webgis/postgis-config', handlePostgisConfigPost),
     route('POST', '/webgis/postgis-action', handlePostgisAction),

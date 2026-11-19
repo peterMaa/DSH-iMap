@@ -11,6 +11,7 @@ and "it is on the map".
   materialize on demand.
 - Basemaps are readable too: rivers, roads, buildings, place names and POIs can be
   extracted from the vector basemap into normal analysable layers.
+Author: Jason · Feedback: [myshow@outlook.com](mailto:myshow@outlook.com)
 
 ## Compatibility
 
@@ -152,14 +153,19 @@ Settings → Plugins → the **dsh-imap** tab, or the plugin row config in
 | Key | Purpose |
 | --- | --- |
 | `baseTileUrl` | Default raster basemap tiles |
-| `tiandituKey` | Tianditu key for 天地图矢量 (vector basemap + annotations) |
+| `tiandituKey` | Tianditu key for 天地图矢量 / 天地图影像 (fallback for the GUI setting) |
 | `vision.provider` / `vision.model` | Vision model used to read map screenshots when the conversation model is text-only |
 | `defaultDataset` | Optional dataset loaded at startup |
 | PostGIS host / port / database / user / password | Database connection for the SQL tools |
 | DuckDB thresholds and memory limit | Sampling and memory behavior for large layers |
 
 Passwords are handed to DSH's credential store rather than written to disk in
-plaintext.
+plaintext. Tianditu is configured under Settings → Plugins → **IMap** → 天地图:
+choose the vector and/or imagery service and enter your key from
+[console.tianditu.gov.cn](https://console.tianditu.gov.cn). The key is stored in
+DSH's credential store and the settings page shows only its first 4 and last 4
+characters on return visits; `tiandituKey` in `cordis.patch.yml` remains a
+fallback.
 
 ### Locate points from a map screenshot
 

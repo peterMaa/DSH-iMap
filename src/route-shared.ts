@@ -9,6 +9,7 @@ import type { Config } from './index.js'
 import type { DbManager } from './db-manager.js'
 import type { GisLayer } from './geo-processing.js'
 import type { PostgisConfig } from './postgis.js'
+import type { TiandituConfig } from './tianditu-config.js'
 import type { VisionConfig } from './vision-chain.js'
 import type { WebgisState } from './session-state.js'
 
@@ -28,6 +29,10 @@ export interface RouteApi {
   db: DbManager
   effectivePostgis: () => PostgisConfig
   effectiveVision: () => VisionConfig | null
+  effectiveTianditu: () => TiandituConfig
+  /** GUI 天地图配置（内存态）：路由读写；effectiveTianditu 读取同一变量。 */
+  tiandituCfg: { get: () => TiandituConfig | null; set: (cfg: TiandituConfig) => void }
+  tiandituFile: string
   dropLayerResources: (layer: GisLayer) => void
   /** GUI 视觉配置（内存态）：路由读写；effectiveVision/工具读取同一变量。 */
   visionCfg: { get: () => VisionConfig | null; set: (cfg: VisionConfig | null) => void }

@@ -58,6 +58,7 @@ export async function savePluginEnabled(v: boolean, file = DEFAULT_FILE): Promis
 /** 插件关闭时仍允许访问的 /webgis/* 路径（配置读写 / 状态 / 静态资源）。 */
 export const ENABLED_ALLOWLIST: ReadonlySet<string> = new Set([
   '/webgis/vision-config',
+  '/webgis/tianditu-config',
   '/webgis/postgis-config',
   '/webgis/postgis-action',
   '/webgis/plugin-config',
